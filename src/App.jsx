@@ -1,17 +1,28 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { Composer } from './components/Composer.jsx';
+import { Composer, withVibes } from './components/Composer.jsx';
 import { ErrorPanel } from './components/ErrorPanel.jsx';
 import { GenerationProgress } from './components/GenerationProgress.jsx';
 import { Header } from './components/Header.jsx';
+import { PopularPlaces } from './components/PopularPlaces.jsx';
 import { RefineBar } from './components/RefineBar.jsx';
 import { SavedTripsDrawer, TripListItem } from './components/SavedTrips.jsx';
 import { TripView } from './components/TripView.jsx';
+import { Welcome } from './components/Welcome.jsx';
 import { useHealth } from './hooks/useHealth.js';
 import { useItineraryGenerator } from './hooks/useItineraryGenerator.js';
 import { useTheme } from './hooks/useTheme.js';
 import { useToast } from './hooks/useToasts.jsx';
 import { deleteTrip, loadCurrentTrip, loadTrips, saveTrip, setCurrentTripId } from './lib/storage.js';
 import { historyReducer, initialHistory, toModelShape } from './state/tripReducer.js';
+
+const WELCOME_KEY = 'wayfarer:welcomed';
+function readWelcomed() {
+  try {
+    return localStorage.getItem(WELCOME_KEY) === '1';
+  } catch {
+    return true; // storage blocked: don't trap the user on the intro
+  }
+}
 
 const isTyping = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
 
@@ -29,6 +40,8 @@ export default function App() {
   const [savedTrips, setSavedTrips] = useState(loadTrips);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [simulate, setSimulate] = useState('');
+  const [vibes, setVibes] = useState([]);
+  const [welcomed, setWelcomed] = useState(readWelcomed);
   const textareaRef = useRef(null);
   const focusComposerRef = useRef(false);
 
@@ -53,16 +66,42 @@ export default function App() {
   }, [trip, toast]);
 
   const generate = useCallback(
-    async (text) => {
-      const result = await create.run({ prompt: text, simulate });
+    async (text, vibeIds = vibes) => {
+      const fullPrompt = withVibes(text, vibeIds);
+      const result = await create.run({ prompt: fullPrompt, simulate });
       if (!result) return;
       const now = Date.now();
-      dispatch({ type: 'load', trip: { ...result.itinerary, prompt: text, createdAt: now, updatedAt: now } });
+      dispatch({ type: 'load', trip: { ...result.itinerary, prompt: fullPrompt, createdAt: now, updatedAt: now } });
       setWarnings(result.warnings);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
-    [create, simulate],
+    [create, simulate, vibes],
   );
+
+  const pickPlace = useCallback((place) => {
+    setPrompt(place.prompt);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => textareaRef.current?.focus({ preventScroll: true }), 0);
+  }, []);
+
+  const planPlace = useCallback(
+    (place) => {
+      setPrompt(place.prompt);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      generate(place.prompt);
+    },
+    [generate],
+  );
+
+  const startApp = useCallback(() => {
+    try {
+      localStorage.setItem(WELCOME_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    setWelcomed(true);
+    focusComposerRef.current = true;
+  }, []);
 
   const applyRefinement = useCallback(
     async (instruction) => {
@@ -99,13 +138,13 @@ export default function App() {
     window.scrollTo({ top: 0 });
   }, [refine, create]);
 
-  // Focus the composer once it has actually mounted after leaving a trip.
+  // Focus the composer once it has actually mounted (after leaving a trip or the intro).
   useEffect(() => {
-    if (!trip && focusComposerRef.current) {
+    if (!trip && welcomed && focusComposerRef.current) {
       focusComposerRef.current = false;
       textareaRef.current?.focus();
     }
-  }, [trip]);
+  }, [trip, welcomed]);
 
   const openTrip = useCallback(
     (saved) => {
@@ -157,7 +196,13 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [trip, refine.isLoading]);
 
-  const recent = savedTrips.slice(0, 3);
+  // Favourites first, then most recently edited.
+  const sortedTrips = [...savedTrips].sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+  const recent = sortedTrips.slice(0, 4);
+
+  if (!welcomed && !trip) {
+    return <Welcome onStart={startApp} />;
+  }
 
   return (
     <>
@@ -190,23 +235,20 @@ export default function App() {
           />
         ) : (
           <div className="home">
-            <section className="hero">
-              <h1 className="hero__title">
-                Where to <em>next?</em>
-              </h1>
-              <p className="hero__lede">
-                Describe a trip in your own words. You’ll get a day-by-day plan you can reorder, trim, and refine.
-              </p>
+            <section className="greet glass">
+              <h1 className="greet__title">Where to next?</h1>
+              <p className="greet__lede">Describe a trip in your own words. We’ll plan every day.</p>
+              <Composer
+                value={prompt}
+                onChange={setPrompt}
+                onSubmit={(text) => generate(text)}
+                onCancel={create.cancel}
+                loading={create.isLoading}
+                textareaRef={textareaRef}
+                vibes={vibes}
+                onToggleVibe={(id) => setVibes((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]))}
+              />
             </section>
-
-            <Composer
-              value={prompt}
-              onChange={setPrompt}
-              onSubmit={generate}
-              onCancel={create.cancel}
-              loading={create.isLoading}
-              textareaRef={textareaRef}
-            />
 
             {create.isLoading && (
               <GenerationProgress
@@ -229,15 +271,15 @@ export default function App() {
               />
             )}
 
-            {create.status === 'idle' && recent.length > 0 && (
-              <section className="recent fade-in" aria-labelledby="recent-heading">
-                <div className="recent__head">
-                  <h2 id="recent-heading">Pick up where you left off</h2>
-                  {savedTrips.length > recent.length && (
-                    <button type="button" className="link-btn" onClick={() => setDrawerOpen(true)}>
-                      See all {savedTrips.length}
-                    </button>
-                  )}
+            {!create.isLoading && <PopularPlaces onPick={pickPlace} onPlan={planPlace} disabled={create.isLoading} />}
+
+            {!create.isLoading && recent.length > 0 && (
+              <section className="section fade-in" aria-labelledby="recent-heading">
+                <div className="section__head">
+                  <h2 id="recent-heading">Your trips</h2>
+                  <button type="button" className="link-btn" onClick={() => setDrawerOpen(true)}>
+                    See all {savedTrips.length > recent.length ? savedTrips.length : ''}
+                  </button>
                 </div>
                 <ul className="trip-list trip-list--grid">
                   {recent.map((t) => (
@@ -245,23 +287,6 @@ export default function App() {
                   ))}
                 </ul>
               </section>
-            )}
-
-            {create.status === 'idle' && recent.length === 0 && (
-              <ul className="features fade-in">
-                <li>
-                  <strong>Drag to reorder</strong>
-                  <span>Move stops within a day or across days, by mouse, touch, or keyboard.</span>
-                </li>
-                <li>
-                  <strong>Refine, don’t restart</strong>
-                  <span>Ask for changes like “make day 2 lazier” and the plan updates in place.</span>
-                </li>
-                <li>
-                  <strong>Saved as you go</strong>
-                  <span>Every edit is saved locally and can be undone.</span>
-                </li>
-              </ul>
             )}
           </div>
         )}
@@ -271,7 +296,7 @@ export default function App() {
 
       <SavedTripsDrawer
         open={drawerOpen}
-        trips={savedTrips}
+        trips={sortedTrips}
         currentId={trip?.id}
         onClose={() => setDrawerOpen(false)}
         onOpen={openTrip}

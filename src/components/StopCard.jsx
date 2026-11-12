@@ -18,6 +18,7 @@ export const StopCard = memo(function StopCard({
   currency,
   destination,
   expanded,
+  highlight,
   isFirst,
   isLast,
   locked,
@@ -53,7 +54,9 @@ export const StopCard = memo(function StopCard({
     <li
       ref={nodeRef}
       style={style}
-      className={`stop ${expanded ? 'is-expanded' : ''} ${dragging ? 'is-dragging' : ''} ${overlay ? 'is-overlay' : ''}`}
+      className={`stop ${expanded ? 'is-expanded' : ''} ${dragging ? 'is-dragging' : ''} ${overlay ? 'is-overlay' : ''} ${
+        highlight && highlight !== stop.category ? 'is-dimmed' : ''
+      }`}
       data-category={stop.category}
     >
       <div className="stop__rail" aria-hidden="true">

@@ -1,4 +1,4 @@
-import { ArrowUp, LoaderCircle, WandSparkles, X } from 'lucide-react';
+import { ArrowUp, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { ErrorPanel } from './ErrorPanel.jsx';
 
@@ -57,9 +57,7 @@ export function RefineBar({ refine, onSubmit, onRetry }) {
             submit(value);
           }}
         >
-          <span className="refine__icon" aria-hidden="true">
-            {loading ? <LoaderCircle size={18} className="spin" /> : <WandSparkles size={18} />}
-          </span>
+          <span className={`orb orb--sm ${loading ? 'orb--busy' : ''}`} aria-hidden="true" />
           {loading ? (
             <span className="refine__status" aria-live="polite">
               {refine.repairing
@@ -73,6 +71,7 @@ export function RefineBar({ refine, onSubmit, onRetry }) {
           ) : (
             <input
               ref={inputRef}
+              id="refine-input"
               className="refine__input"
               value={value}
               maxLength={500}
@@ -84,11 +83,11 @@ export function RefineBar({ refine, onSubmit, onRetry }) {
             />
           )}
           {loading ? (
-            <button type="button" className="btn btn--secondary btn--sm" onClick={refine.cancel}>
+            <button key="cancel" type="button" className="btn btn--secondary btn--sm" onClick={refine.cancel}>
               <X size={15} aria-hidden="true" /> Cancel
             </button>
           ) : (
-            <button type="submit" className="icon-btn icon-btn--primary" aria-label="Apply change" disabled={!value.trim()}>
+            <button key="submit" type="submit" className="round-btn" aria-label="Apply change" disabled={!value.trim()}>
               <ArrowUp size={18} />
             </button>
           )}

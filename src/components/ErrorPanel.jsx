@@ -22,7 +22,7 @@ export function ErrorPanel({ error, onRetry, onEdit, onDismiss, compact = false 
   const message = soft ? error.message : copy.hint;
 
   return (
-    <div className={`error-panel ${compact ? 'error-panel--compact' : ''} ${soft ? 'error-panel--soft' : ''}`} role="alert">
+    <div className={`error-panel glass ${compact ? 'error-panel--compact' : ''} ${soft ? 'error-panel--soft' : ''}`} role="alert">
       <span className="error-panel__icon">
         <Icon size={compact ? 16 : 20} aria-hidden="true" />
       </span>

@@ -1,9 +1,11 @@
-import { CalendarDays, ChevronsDownUp, ChevronsUpDown, Info, MapPin, Plus, Redo2, Route, Sparkles, Undo2, Wallet, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronsDownUp, ChevronsUpDown, Heart, Info, MapPin, Plus, Redo2, Route, Sparkles, Undo2, WandSparkles, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { formatMoney } from '../lib/format.js';
 import { findStop, tripStats } from '../state/tripReducer.js';
 import { useToast } from '../hooks/useToasts.jsx';
 import { DayBoard } from './DayBoard.jsx';
+import { CATEGORY_META, CategoryIcon } from './icons.jsx';
+import { PlacePhoto } from './PlacePhoto.jsx';
 import { BudgetCard, PackingCard } from './SideCards.jsx';
 
 // Runs after React has committed the change, so the target element exists in its new place.
@@ -31,9 +33,53 @@ function WarningsBanner({ warnings, onDismiss }) {
   );
 }
 
+/** Categories present in the trip, most common first. Clicking one highlights matching stops. */
+function CategoryChips({ trip, active, onToggle }) {
+  const counts = new Map();
+  trip.days.forEach((d) => d.stops.forEach((s) => counts.set(s.category, (counts.get(s.category) ?? 0) + 1)));
+  const cats = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  if (!cats.length) return null;
+  return (
+    <div className="cat-chips" role="group" aria-label="Highlight stops by type">
+      {cats.map(([cat, n]) => (
+        <button
+          key={cat}
+          type="button"
+          className={`cat-chip ${active === cat ? 'is-on' : ''}`}
+          data-category={cat}
+          aria-pressed={active === cat}
+          onClick={() => onToggle(cat)}
+          title={`Highlight ${(CATEGORY_META[cat]?.label ?? cat).toLowerCase()} stops`}
+        >
+          <CategoryIcon category={cat} size={18} />
+          <span>{CATEGORY_META[cat]?.label ?? cat}</span>
+          <small>{n}</small>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Summary({ text }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  const long = text.length > 140;
+  return (
+    <p className={`trip__summary ${open || !long ? '' : 'is-clamped'}`}>
+      {text}{' '}
+      {long && (
+        <button type="button" className="link-btn" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          {open ? 'See less' : 'See more…'}
+        </button>
+      )}
+    </p>
+  );
+}
+
 export function TripView({ trip, dispatch, canUndo, canRedo, warnings, onDismissWarnings, locked, onNewTrip }) {
   const toast = useToast();
   const [expanded, setExpanded] = useState(() => new Set());
+  const [highlight, setHighlight] = useState(null);
   const stats = tripStats(trip);
   const allIds = trip.days.flatMap((d) => d.stops.map((s) => s.id));
   const allExpanded = allIds.length > 0 && allIds.every((id) => expanded.has(id));
@@ -103,14 +149,28 @@ export function TripView({ trip, dispatch, canUndo, canRedo, warnings, onDismiss
 
   return (
     <article className={`trip ${locked ? 'is-locked' : ''}`} aria-busy={locked}>
-      <header className="trip__header fade-in">
-        {trip.destination && (
-          <p className="eyebrow">
-            <MapPin size={14} aria-hidden="true" /> {trip.destination}
-          </p>
-        )}
-        <h1 className="trip__title">{trip.title}</h1>
-        {trip.summary && <p className="trip__summary">{trip.summary}</p>}
+      <section className="trip-hero fade-in">
+        <PlacePhoto query={trip.destination || trip.title} className="trip-hero__photo" credit />
+        <div className="trip-hero__bar">
+          <button type="button" className="glass-round" onClick={onNewTrip} aria-label="Back to home" title="Back to home">
+            <ArrowLeft size={18} />
+          </button>
+          <span className="trip-hero__label">Your itinerary</span>
+          <button
+            type="button"
+            className={`glass-round heart ${trip.favorite ? 'is-on' : ''}`}
+            aria-pressed={!!trip.favorite}
+            aria-label={trip.favorite ? 'Remove from favourites' : 'Add to favourites'}
+            title={trip.favorite ? 'Favourite' : 'Add to favourites'}
+            disabled={locked}
+            onClick={() => dispatch({ type: 'toggleFavorite' })}
+          >
+            <Heart size={18} />
+          </button>
+        </div>
+      </section>
+
+      <header className="trip-sheet glass fade-in">
         <ul className="stats" aria-label="Trip summary">
           <li>
             <CalendarDays size={15} aria-hidden="true" /> {stats.days} {stats.days === 1 ? 'day' : 'days'}
@@ -118,12 +178,38 @@ export function TripView({ trip, dispatch, canUndo, canRedo, warnings, onDismiss
           <li>
             <Route size={15} aria-hidden="true" /> {stats.stops} stops
           </li>
-          {stats.budgetTotal > 0 && (
-            <li>
-              <Wallet size={15} aria-hidden="true" /> ~{formatMoney(stats.budgetTotal, trip.currency)} pp
-            </li>
-          )}
         </ul>
+        <h1 className="trip__title">{trip.title}</h1>
+        {trip.destination && (
+          <p className="trip__place">
+            <MapPin size={15} aria-hidden="true" /> {trip.destination}
+          </p>
+        )}
+        <CategoryChips trip={trip} active={highlight} onToggle={(c) => setHighlight((h) => (h === c ? null : c))} />
+        {trip.summary && (
+          <>
+            <h2 className="sheet-heading">About this trip</h2>
+            <Summary text={trip.summary} />
+          </>
+        )}
+        <div className="trip-sheet__footer">
+          {stats.budgetTotal > 0 ? (
+            <p className="price">
+              {formatMoney(stats.budgetTotal, trip.currency)}
+              <span>/ person</span>
+            </p>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            className="btn-gradient"
+            disabled={locked}
+            onClick={() => document.getElementById('refine-input')?.focus()}
+          >
+            <WandSparkles size={17} aria-hidden="true" /> Refine with AI
+          </button>
+        </div>
       </header>
 
       <div className="toolbar" role="toolbar" aria-label="Itinerary tools">
@@ -167,8 +253,17 @@ export function TripView({ trip, dispatch, canUndo, canRedo, warnings, onDismiss
 
       <div className="trip__layout">
         <div className="trip__main">
+          {highlight && (
+            <p className="highlight-note fade-in">
+              Highlighting {(CATEGORY_META[highlight]?.label ?? highlight).toLowerCase()} stops ·{' '}
+              <button type="button" className="link-btn" onClick={() => setHighlight(null)}>
+                Show all
+              </button>
+            </p>
+          )}
           <DayBoard
             trip={trip}
+            highlight={highlight}
             expanded={expanded}
             locked={locked}
             onToggle={toggle}

@@ -1,4 +1,5 @@
 import { Check, Hourglass, LoaderCircle, WandSparkles } from 'lucide-react';
+import { PlacePhoto } from './PlacePhoto.jsx';
 
 const STEPS = [
   { phase: 'connecting', label: 'Contacting the AI' },
@@ -57,7 +58,8 @@ export function GenerationProgress({ phase, preview, slow, repairing, received }
         </p>
       )}
 
-      <div className="preview">
+      <div className="preview glass">
+        {preview?.destination && <PlacePhoto query={preview.destination} className="preview__photo fade-in" />}
         {preview?.title ? (
           <div className="preview__head fade-in">
             {preview.destination && <p className="eyebrow">{preview.destination}</p>}

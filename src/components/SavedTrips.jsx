@@ -1,6 +1,7 @@
-import { CalendarDays, Trash2, X } from 'lucide-react';
+import { CalendarDays, ChevronRight, Heart, Trash2, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { formatRelativeTime } from '../lib/format.js';
+import { PlacePhoto } from './PlacePhoto.jsx';
 
 /** Side sheet built on <dialog>: native focus trapping, Esc to close, and a backdrop for free. */
 export function SavedTripsDrawer({ open, trips, currentId, onClose, onOpen, onDelete }) {
@@ -24,11 +25,11 @@ export function SavedTripsDrawer({ open, trips, currentId, onClose, onOpen, onDe
       <div className="drawer__panel">
         <header className="drawer__head">
           <h2 id="drawer-title">My trips</h2>
-          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
+          <button type="button" className="glass-round" aria-label="Close" onClick={onClose}>
             <X size={18} />
           </button>
         </header>
-        <p className="drawer__hint">Trips save automatically in this browser.</p>
+        <p className="drawer__hint">Trips save automatically in this browser. Favourites come first.</p>
         {trips.length === 0 ? (
           <div className="drawer__empty">
             <CalendarDays size={28} aria-hidden="true" />
@@ -51,13 +52,19 @@ export function TripListItem({ trip, current, onOpen, onDelete }) {
   return (
     <li className={`trip-item ${current ? 'is-current' : ''}`}>
       <button type="button" className="trip-item__main" onClick={() => onOpen(trip)}>
-        <span className="trip-item__title">{trip.title}</span>
-        <span className="trip-item__meta">
-          {trip.destination && `${trip.destination} · `}
-          {trip.days.length} {trip.days.length === 1 ? 'day' : 'days'} · {stops} stops
-          {trip.updatedAt ? ` · ${formatRelativeTime(trip.updatedAt)}` : ''}
+        <PlacePhoto query={trip.destination || trip.title} className="trip-item__thumb" />
+        <span className="trip-item__text">
+          <span className="trip-item__title">
+            {trip.favorite && <Heart size={13} className="trip-item__fav" aria-label="Favourite" />}
+            {trip.title}
+          </span>
+          <span className="trip-item__meta">
+            {trip.days.length} {trip.days.length === 1 ? 'day' : 'days'} · {stops} stops
+            {trip.updatedAt ? ` · ${formatRelativeTime(trip.updatedAt)}` : ''}
+          </span>
+          {current && <span className="trip-item__tag">Open now</span>}
         </span>
-        {current && <span className="trip-item__tag">Open</span>}
+        {!onDelete && <ChevronRight size={18} className="trip-item__chev" aria-hidden="true" />}
       </button>
       {onDelete && (
         <button type="button" className="icon-btn icon-btn--sm" aria-label={`Delete ${trip.title}`} onClick={() => onDelete(trip)}>

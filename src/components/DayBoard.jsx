@@ -82,7 +82,7 @@ function DaySection({ day, index, stopIds, stopsById, shared, onAddStop, onRemov
  * While dragging we keep a local copy of the order (columns) and commit a single
  * `reorder` action on drop, so one drag = one undo step.
  */
-export function DayBoard({ trip, expanded, locked, onToggle, onMove, onMoveToDay, onRemove, onAddStop, onRemoveDay, onReorder }) {
+export function DayBoard({ trip, highlight, expanded, locked, onToggle, onMove, onMoveToDay, onRemove, onAddStop, onRemoveDay, onReorder }) {
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
   const setDragState = (next) => {
@@ -109,6 +109,7 @@ export function DayBoard({ trip, expanded, locked, onToggle, onMove, onMoveToDay
     currency: trip.currency,
     destination: trip.destination,
     expanded,
+    highlight,
     locked,
     onToggle,
     onMove,

@@ -30,10 +30,10 @@ export function CategoryIcon({ category, size = 16 }) {
 export function Logo() {
   return (
     <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" className="logo-mark">
-      <circle cx="16" cy="16" r="15" fill="var(--accent)" />
-      <path d="M16 6.5 19.2 16 16 25.5 12.8 16Z" fill="var(--accent-ink)" />
-      <path d="M16 6.5 19.2 16h-6.4Z" fill="var(--accent-ink)" opacity=".55" />
-      <circle cx="16" cy="16" r="1.6" fill="var(--accent)" />
+      <circle cx="16" cy="16" r="15" fill="var(--ink)" />
+      <path d="M16 6.5 19.2 16 16 25.5 12.8 16Z" fill="var(--ink-text)" />
+      <path d="M16 6.5 19.2 16h-6.4Z" fill="var(--ink-text)" opacity=".55" />
+      <circle cx="16" cy="16" r="1.6" fill="var(--ink)" />
     </svg>
   );
 }
