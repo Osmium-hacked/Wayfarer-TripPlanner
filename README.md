@@ -8,6 +8,11 @@ prompts that edit it in place.
 It is not a chatbot. The model's text is never shown to the user directly. It is parsed, validated and normalized
 into app state, and every way the model can misbehave has a defined UI outcome.
 
+The interface uses a warm "glass" style: frosted cards over a soft peach-and-lavender backdrop, real destination
+photos, black pill buttons, and matching light and dark themes.
+
+**▶ Demo video:** [`demo/wayfarer-demo.mp4`](demo/wayfarer-demo.mp4) (2 min 20 s, captioned, desktop then mobile).
+
 ---
 
 ## Quick start
@@ -35,7 +40,9 @@ free tier), **Gemini**, **OpenRouter** and **Ollama** (local, free).
 | Command | What it does |
 | --- | --- |
 | `npm start` | API server + Vite dev server together |
-| `npm test` | Unit tests (parsing, normalization, reducer) |
+| `npm test` | Unit tests (parsing, normalization, reducer, photo lookup) |
+| `npm run smoke` | End-to-end browser test of every feature (needs `npm start` running and Chrome installed) |
+| `npm run demo` | Re-records the captioned demo video to `demo/wayfarer-demo.mp4` (needs Chrome + `ffmpeg`) |
 | `npm run build && npm run serve` | Production build served by the Express server (honours `PORT`) |
 
 ---
@@ -70,6 +77,10 @@ free tier), **Gemini**, **OpenRouter** and **Ollama** (local, free).
   of days). Anything thrown away is reported to the user as a warning.
 - **State** is a pure reducer wrapped in undo/redo history (`src/state/tripReducer.js`). User edits *and* AI
   refinements go through it, so everything is undoable and one drag = one undo step.
+- **Destination photos** come from Wikipedia's free REST API (no key; `src/lib/photos.js`). Lead images are often
+  flags, maps or satellite shots, so non-photos are rejected and the lookup falls back to the city, a "Tourism in X"
+  article, or a small list of scenic aliases. Results are cached in `localStorage`, and a warm gradient shows while
+  loading or when nothing suitable exists. Each photo links back to its Wikipedia page.
 
 ### Handling bad AI output
 
@@ -94,9 +105,18 @@ with `ALLOW_SIMULATE=false`.
 
 ## Features
 
+**Screens**
+- **Welcome** (first visit only): photo card and a "Get Started" button.
+- **Home:** a frosted prompt card with a gradient "orb" input; trip-style tiles (Relaxed, Foodie, Adventure, Culture,
+  Family, Budget) that are added to the request; a **Popular places** photo carousel (tap a card to customise its
+  request, or its arrow to plan it right away); and your saved trips with thumbnails.
+- **Trip:** a full-width destination photo with back and favourite buttons, and an overlapping glass panel with the
+  title, category tiles that **highlight matching stops**, a "See more" description, the per-person budget and a
+  **Refine with AI** button. Below it: the day-by-day timeline, budget chart and packing list.
+
 **Required**
 - React with hooks and function components only
-- Free-form text input with examples, character limit, Ctrl/⌘+Enter
+- Free-form text input with examples, character limit, Enter to plan (Shift+Enter for a new line)
 - Real LLM through a backend proxy; structured JSON → interactive, stateful UI
 - Expand / remove / reorder stops (drag & drop across days, ↑/↓ buttons, *Move to day…*, keyboard)
 - Loading (step indicator + skeletons + live preview), error, and empty states
@@ -106,7 +126,7 @@ with `ALLOW_SIMULATE=false`.
 - ✅ Different block types: timeline stops, a **budget bar chart**, a **packing checklist**
 - ✅ Streaming with a live partial-JSON preview
 - ✅ Refinement loop: follow-ups edit the existing itinerary (the current JSON is sent back), undoable
-- ✅ Save & reload: trips autosave to `localStorage`, "My trips" drawer, resume from the home screen
+- ✅ Save & reload: trips autosave to `localStorage`, "My trips" drawer (favourites first), resume from the home screen
 - ✅ Polish: light/dark/system theme, animations (respecting `prefers-reduced-motion`), keyboard navigation
   (↑/↓ between stops, Alt+↑/↓ to reorder, Del to remove, Ctrl+Z / Ctrl+Shift+Z), focus management after moves
   and deletes, toast undo for destructive actions
@@ -128,13 +148,20 @@ src/
     errors.js     ItineraryError kinds + user-facing copy
     api.js        fetch + NDJSON reader, idle timeout, abort handling
     storage.js    Guarded localStorage (validated reads, quota-safe writes)
+    photos.js     Wikipedia photo lookup: candidates, non-photo filter, caching
   hooks/
     useItineraryGenerator.js   stream → preview → parse → validate → repair; race-safe
     useTheme.js, useHealth.js, useToasts.jsx
   state/tripReducer.js         Pure trip reducer + undo/redo history
-  components/                  Composer, GenerationProgress, ErrorPanel, TripView, DayBoard,
-                               StopCard, AddStopForm, SideCards, RefineBar, SavedTrips, Header
-tests/                         Vitest: parser, normalizer, reducer (45 tests)
+  components/                  Welcome, Composer, PopularPlaces, PlacePhoto, GenerationProgress,
+                               ErrorPanel, TripView, DayBoard, StopCard, AddStopForm, SideCards,
+                               RefineBar, SavedTrips, Header
+tests/                         Vitest: parser, normalizer, reducer, photos (58 tests)
+scripts/
+  smoke.mjs        Playwright end-to-end check of every feature (23 steps)
+  record-demo.mjs  Scripted, captioned demo recording → MP4 via ffmpeg
+  shots.mjs        Screenshots of the main screens (light/dark, desktop/mobile) for design review
+demo/              The recorded demo video
 ```
 
 ---
@@ -151,6 +178,10 @@ tests/                         Vitest: parser, normalizer, reducer (45 tests)
   simpler and more robust than asking the model for a patch/diff format.
 - **Undo for removals is targeted** (`restoreStop` puts that exact stop back where it was), so the toast's "Undo"
   stays correct even if you made other edits in between.
+- **Category tiles highlight instead of filter.** Hiding stops would break drag-and-drop ordering, so non-matching
+  stops are dimmed and every interaction keeps working.
+- **Photos from Wikipedia rather than a stock-photo API**: free, no key to manage, and every destination has a page.
+  The trade-off is less control over image quality, handled by the non-photo filter and fallbacks.
 
 ## Known limitations
 
@@ -160,6 +191,8 @@ tests/                         Vitest: parser, normalizer, reducer (45 tests)
 - Costs/budgets are model estimates in whatever currency it picks; there is no conversion.
 - Trips are stored per-browser in `localStorage` (no accounts or sync); oldest trips are dropped past 20 or on quota errors.
 - Demo mode's refinement doesn't actually change the plan; it only annotates the summary.
+- Photos need internet access to Wikipedia. Picking a good one is heuristic, so an occasional destination gets an
+  unrepresentative photo or the gradient fallback.
 - No rate limiting on the proxy endpoint. Add one before deploying publicly.
 
 ## What I'd do next
@@ -177,13 +210,19 @@ I built this with **Claude Code** (Anthropic's AI coding agent, Claude Opus 5.5)
 it did. I gave it the assignment PDF and asked for a trip planner with polished UI/UX. From there the agent:
 
 - Chose the architecture (Vite + React frontend, Express proxy, plain `fetch` streaming instead of an SDK) and wrote
-  the code: server, prompts, parser, normalizer, reducer, hooks, components, CSS and the 45 unit tests.
+  the code: server, prompts, parser, normalizer, reducer, hooks, components, CSS and the unit tests (58 now).
 - Ran the app in a browser and checked every failure mode through the built-in simulator: auto-repair, unrecoverable
   JSON, wrong shape, not-a-trip, 503, messy data, the 30 s stall timeout, and a cancel-then-resubmit race. It also
   tested drag-and-drop across days, keyboard reordering, delete + undo, refinement success and failure, and the
   layout at 375 px in light and dark themes.
 - Fixed the bugs that testing found: an API/Vite port clash, focus being lost after deleting a stop, a stray separator
   in stop details, the mode badge clipping on mobile, and refinements resetting packing-list checkmarks.
+- Redesigned the interface from a reference mockup I supplied (frosted glass, photo cards, black pill buttons): the
+  welcome screen, home carousel, trip-style tiles, photo hero, category highlighting and favourites.
+- Wrote a Playwright smoke test that drives Chrome through every feature. It caught a real bug: pressing **Cancel**
+  during generation immediately restarted the request, because React reused the clicked Cancel button as the submit
+  button. The fix gives the two buttons separate `key`s.
+- Scripted and recorded the demo video.
 - Split the work into the commit history in this repo. Every commit carries a `Co-Authored-By: Claude` trailer.
 
 My part was directing the work, deciding what to keep, and going through the code so I can explain and extend it in
@@ -194,6 +233,9 @@ been run against a real API key yet.
 
 ## Time spent
 
-About **45 minutes** of build and browser-testing time in one Claude Code session on 2026-11-09, plus a short session
-on 2026-11-10 to set up the git history and publish the repo. That is well under the 8-hour budget. I spent the time
-saved on breadth: streaming, refinement, saved trips and theming, which are the stretch goals.
+- **2026-11-09:** about 45 minutes to build and browser-test the first version.
+- **2026-11-10:** a short session to set up the git history and publish the repo.
+- **2026-11-12:** about 1½ hours for the UI redesign, the end-to-end smoke test and the demo video.
+
+That is well under the 8-hour budget. I spent the time saved on breadth (streaming, refinement, saved trips,
+theming) and on polish and testing.
