@@ -71,7 +71,7 @@ export function tripReducer(trip, action) {
       const packingList = (action.trip.packingList ?? []).map((p) =>
         checked.has(p.text.toLowerCase()) ? { ...p, checked: true } : p,
       );
-      return { ...action.trip, packingList, id: trip.id, prompt: trip.prompt, createdAt: trip.createdAt };
+      return { ...action.trip, packingList, id: trip.id, prompt: trip.prompt, createdAt: trip.createdAt, favorite: trip.favorite };
     }
 
     case 'removeStop': {
@@ -147,6 +147,9 @@ export function tripReducer(trip, action) {
       });
       return changed ? { ...trip, days } : trip;
     }
+
+    case 'toggleFavorite':
+      return { ...trip, favorite: !trip.favorite };
 
     case 'addDay':
       return { ...trip, days: [...trip.days, { id: createId('day'), title: '', stops: [] }] };
