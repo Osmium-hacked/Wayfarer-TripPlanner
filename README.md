@@ -223,7 +223,7 @@ it did. I gave it the assignment PDF and asked for a trip planner with polished 
   during generation immediately restarted the request, because React reused the clicked Cancel button as the submit
   button. The fix gives the two buttons separate `key`s.
 - Scripted and recorded the demo video.
-- Split the work into the commit history in this repo. Every commit carries a `Co-Authored-By: Claude` trailer.
+- Split the work into the commit history in this repo.
 
 My part was directing the work, deciding what to keep, and going through the code so I can explain and extend it in
 the interview.
